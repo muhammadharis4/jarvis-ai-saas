@@ -6,7 +6,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "react-hot-toast";
-import { FileAudio } from "lucide-react";
+import { Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import Heading from "@/components/heading";
@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Loader } from "@/components/loader";
 import Empty from "@/components/empty";
 import { useProModal } from "@/hooks/use-pro-modal";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
 
 import { formSchema } from "./constants";
 
@@ -37,15 +38,15 @@ const VideoPage = () => {
     try {
       setVideo(undefined);
 
-      const response = await axios.post('/api/video', values);
+      const response = await axios.post("/api/video", values);
 
       setVideo(response.data[0]);
       form.reset();
-    } catch (error: any) {
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         proModal.onOpen();
       } else {
-        toast.error("Something went wrong.");
+        toast.error(getApiErrorMessage(error));
       }
     } finally {
       router.refresh();
@@ -57,7 +58,7 @@ const VideoPage = () => {
       <Heading
         title="Video Generation"
         description="Turn your prompt into video."
-        icon={FileAudio}
+        icon={Video}
         iconColor="text-orange-700"
         bgColor="bg-orange-700/10"
       />
@@ -104,7 +105,11 @@ const VideoPage = () => {
           </div>
         )}
         {!video && !isLoading && (
-          <Empty label="No video files generated." />
+          <Empty
+            title="No clip yet"
+            label="Describe a scene — the player below shows the first URL returned by Replicate."
+            hint="Runs can take minutes; timeouts show up as error toasts."
+          />
         )}
         {video && (
           <video controls className="w-full aspect-video mt-8 rounded-lg border bg-black">

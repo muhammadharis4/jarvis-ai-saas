@@ -6,7 +6,7 @@ import { Code } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import OpenAI from "openai";
+import type OpenAI from "openai";
 
 import BotAvatar from "@/components/bot-avatar";
 import Heading from "@/components/heading";
@@ -21,13 +21,22 @@ import Empty from "@/components/empty";
 import Markdown from "react-markdown";
 import { useProModal } from "@/hooks/use-pro-modal";
 import { toast } from "react-hot-toast";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
 
 import { formSchema } from "./constants";
+
+type ChatMessage = OpenAI.Chat.ChatCompletionMessageParam;
+
+function messagePlainText(message: ChatMessage): string {
+  const c = message.content;
+  if (typeof c === "string") return c;
+  return "";
+}
 
 const CodePage = () => {
   const router = useRouter();
   const proModal = useProModal();
-  const [messages, setMessages] = useState<OpenAI.Chat.ChatCompletionMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,21 +49,21 @@ const CodePage = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userMessage: OpenAI.Chat.ChatCompletionMessage = {
-        role: "assistant",
+      const userMessage: ChatMessage = {
+        role: "user",
         content: values.prompt,
       };
       const newMessages = [...messages, userMessage];
 
       const response = await axios.post("/api/code", { messages: newMessages });
-      setMessages((current) => [...current, userMessage, response.data]);
+      setMessages((current) => [...current, userMessage, response.data as ChatMessage]);
 
       form.reset();
-    } catch (error: any) {
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         proModal.onOpen();
       } else {
-        toast.error("Something went wrong.");
+        toast.error(getApiErrorMessage(error));
       }
     } finally {
       router.refresh();
@@ -121,35 +130,48 @@ const CodePage = () => {
             </div>
           )}
           {messages.length === 0 && !isLoading && (
-            <Empty label="No conversation started." />
+            <Empty
+              title="Describe what to build"
+              label="Your prompt and the model’s answer appear here in a thread."
+              hint="Responses are markdown code blocks — same OpenAI key as Conversation."
+            />
           )}
           <div className="flex flex-col-reverse gap-y-4">
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
-                key={message.content}
+                key={`${message.role}-${index}-${messagePlainText(message).slice(0, 48)}`}
                 className={cn(
                   "p-8 w-full flex items-start gap-x-8 rounded-lg",
                   message.role === "assistant"
                     ? "bg-white border border-black/10"
-                    : "bg-muted"
+                    : "bg-muted",
                 )}
               >
-                {message.role === "assistant" ? <UserAvatar /> : <BotAvatar />}
-                <Markdown
-                  components={{
-                    pre: ({ node, ...props }) => (
-                      <div className="overflow-auto w-full my-2 bg-black/10 p-2 rounded-lg">
-                        <pre {...props} />
-                      </div>
-                    ),
-                    code: ({ node, ...props }) => (
-                      <code className="bg-black/10 rounded-lg p-1" {...props} />
-                    ),
-                  }}
-                  className="text-sm overflow-hidden leading-7"
-                >
-                  {message.content || ""}
-                </Markdown>
+                {message.role === "assistant" ? (
+                  <>
+                    <BotAvatar />
+                    <Markdown
+                      components={{
+                        pre: ({ ...props }) => (
+                          <div className="overflow-auto w-full my-2 bg-black/10 p-2 rounded-lg">
+                            <pre {...props} />
+                          </div>
+                        ),
+                        code: ({ ...props }) => (
+                          <code className="bg-black/10 rounded-lg p-1" {...props} />
+                        ),
+                      }}
+                      className="text-sm overflow-hidden leading-7"
+                    >
+                      {messagePlainText(message)}
+                    </Markdown>
+                  </>
+                ) : (
+                  <>
+                    <UserAvatar />
+                    <p className="text-sm whitespace-pre-wrap">{messagePlainText(message)}</p>
+                  </>
+                )}
               </div>
             ))}
           </div>

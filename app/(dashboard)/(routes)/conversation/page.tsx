@@ -6,7 +6,7 @@ import { MessageSquare } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import OpenAI from "openai";
+import type OpenAI from "openai";
 
 import BotAvatar from "@/components/bot-avatar";
 import Heading from "@/components/heading";
@@ -19,14 +19,17 @@ import { Loader } from "@/components/loader";
 import { UserAvatar } from "@/components/user-avatar";
 import Empty from "@/components/empty";
 import { useProModal } from "@/hooks/use-pro-modal";
-import {toast} from "react-hot-toast"
+import { toast } from "react-hot-toast";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
 
 import { formSchema } from "./constants";
+
+type ChatMessage = OpenAI.Chat.ChatCompletionMessageParam;
 
 const ConversationPage = () => {
   const router = useRouter();
   const proModal = useProModal();
-  const [messages, setMessages] = useState<OpenAI.Chat.ChatCompletionMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,8 +42,8 @@ const ConversationPage = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userMessage: OpenAI.Chat.ChatCompletionMessage = {
-        role: "assistant",
+      const userMessage: ChatMessage = {
+        role: "user",
         content: values.prompt,
       };
       const newMessages = [...messages, userMessage];
@@ -48,14 +51,14 @@ const ConversationPage = () => {
       const response = await axios.post("/api/conversation", {
         messages: newMessages,
       });
-      setMessages((current) => [...current, userMessage, response.data]);
+      setMessages((current) => [...current, userMessage, response.data as ChatMessage]);
 
       form.reset();
-    } catch (error: any) {
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         proModal.onOpen();
       } else {
-        toast.error("Something went wrong.");
+        toast.error(getApiErrorMessage(error));
       }
     } finally {
       router.refresh();
@@ -110,7 +113,7 @@ const ConversationPage = () => {
                 disabled={isLoading}
                 size="icon"
               >
-                Generate
+                Send
               </Button>
             </form>
           </Form>
@@ -122,21 +125,38 @@ const ConversationPage = () => {
             </div>
           )}
           {messages.length === 0 && !isLoading && (
-            <Empty label="No conversation started." />
+            <Empty
+              title="Start the thread"
+              label="Ask anything — replies stream from your server’s OpenAI integration."
+              hint="If sends fail instantly, verify OPENAI_API_KEY in .env and restart dev."
+            />
           )}
           <div className="flex flex-col-reverse gap-y-4">
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <div
-                key={message.content}
+                key={`${message.role}-${index}-${typeof message.content === "string" ? message.content.slice(0, 48) : index}`}
                 className={cn(
                   "p-8 w-full flex items-start gap-x-8 rounded-lg",
                   message.role === "assistant"
                     ? "bg-white border border-black/10"
-                    : "bg-muted"
+                    : "bg-muted",
                 )}
               >
-                {message.role === "assistant" ? <UserAvatar /> : <BotAvatar />}
-                <p className="text-sm">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <>
+                    <BotAvatar />
+                    <p className="text-sm">
+                      {typeof message.content === "string" ? message.content : ""}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <UserAvatar />
+                    <p className="text-sm">
+                      {typeof message.content === "string" ? message.content : ""}
+                    </p>
+                  </>
+                )}
               </div>
             ))}
           </div>

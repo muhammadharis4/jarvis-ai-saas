@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProModal } from "@/hooks/use-pro-modal";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
 
 import { amountOptions, formSchema, resolutionOptions } from "./constants";
 
@@ -53,11 +54,11 @@ const PhotoPage = () => {
       const urls = response.data.map((image: { url: string }) => image.url);
 
       setPhotos(urls);
-    } catch (error: any) {
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         proModal.onOpen();
       } else {
-        toast.error("Something went wrong.");
+        toast.error(getApiErrorMessage(error));
       }
     } finally {
       router.refresh();
@@ -175,7 +176,11 @@ const PhotoPage = () => {
           </div>
         )}
         {photos.length === 0 && !isLoading && (
-          <Empty label="No images generated." />
+          <Empty
+            title="No previews yet"
+            label="Submit a prompt — images from OpenAI render in a grid below."
+            hint="Billing and model errors usually show in the toast text from the API."
+          />
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-8">
           {photos.map((src) => (

@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { Music, Send } from "lucide-react";
+import { Music } from "lucide-react";
 
 import Heading from "@/components/heading";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Loader } from "@/components/loader";
 import Empty from "@/components/empty";
 import { useProModal } from "@/hooks/use-pro-modal";
+import { getApiErrorMessage } from "@/lib/get-api-error-message";
 
 import { formSchema } from "./constants";
 
@@ -41,11 +42,11 @@ const MusicPage = () => {
 
       setMusic(response.data.audio);
       form.reset();
-    } catch (error: any) {
-      if (error?.response?.status === 403) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
         proModal.onOpen();
       } else {
-        toast.error("Something went wrong.");
+        toast.error(getApiErrorMessage(error));
       }
     } finally {
       router.refresh();
@@ -104,7 +105,11 @@ const MusicPage = () => {
           </div>
         )}
         {!music && !isLoading && (
-          <Empty label="No music generated." />
+          <Empty
+            title="No audio yet"
+            label="Describe a style or instrument — playback appears here when ready."
+            hint="Requires REPLICATE_API_KEY; Riffusion output shape may vary — check response in network tab if UI is empty."
+          />
         )}
         {music && (
           <audio controls className="w-full mt-8">

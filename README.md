@@ -179,4 +179,4 @@ The image runs **`npm run build`** without embedding API secrets; containers sti
 
 ## License
 
-Private / unlicensed unless you add a license file.
+[MIT](./LICENSE). Replace the copyright line in `LICENSE` with your name or organization if you prefer.

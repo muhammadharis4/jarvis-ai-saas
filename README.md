@@ -17,6 +17,27 @@ Next.js application that exposes several AI tools behind authentication: chat, c
 - **Subscriptions:** Prisma model `UserSubscription` stores Stripe customer/subscription IDs and period end. The UI calls **`GET /api/stripe`** for checkout or the customer portal — **that API route is not included in this repository**, so the Upgrade / Manage subscription buttons will not work until you add it (and webhooks to write `UserSubscription` rows).
 - **Support chat:** [Crisp](https://crisp.chat/) is wired in `components/crisp-chat.tsx` with a **hard-coded** website ID. Replace it with your own ID or remove `CrispProvider` from `app/layout.tsx` if you do not use Crisp.
 
+## Screenshots
+
+Stylized previews that match this project’s landing and dashboard aesthetic (PNG assets you can regenerate or replace anytime):
+
+<p align="center">
+  <img src="./docs/screenshots/landing.png" alt="Landing page hero and marketing layout" width="780" /><br/>
+  <em>Landing — dark hero with gradient accents and feature cards above testimonials</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/dashboard.png" alt="Signed-in dashboard with tool list and setup tip" width="780" /><br/>
+  <em>Dashboard — welcome copy, optional local setup banner, selectable tool tiles</em>
+</p>
+
+<p align="center">
+  <img src="./docs/screenshots/conversation.png" alt="Conversation tool empty state" width="780" /><br/>
+  <em>Conversation — prompt bar and empty-state onboarding before the first message</em>
+</p>
+
+Replace files under **`docs/screenshots/`** after you capture your own **`npm run dev`** sessions if you prefer pixel-perfect frames.
+
 ## Prerequisites
 
 - **Node.js** 18+ (recommended for Next.js 14)
@@ -61,6 +82,12 @@ CLERK_SECRET_KEY="sk_test_..."
 OPENAI_API_KEY="sk-..."
 REPLICATE_API_KEY="r8_..."
 ```
+
+**Seeing “Missing Clerk Secret Key”?**
+
+- **`npm run dev`** only reads **`.env`** or **`.env.local`** in the project root — **not** `.env.docker.example`. Copy `.env.docker.example` to `.env`, paste your Clerk keys into `.env`, then **restart** the dev server.
+- Names must match exactly: **`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`** (`pk_test_…` / `pk_live_…`) and **`CLERK_SECRET_KEY`** (`sk_test_…` / `sk_live_…`) from [Clerk Dashboard](https://dashboard.clerk.com) → **API Keys** for this application instance.
+- **Docker Compose:** use the same keys in **`.env`** at the repo root so `${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}` and `${CLERK_SECRET_KEY}` are not empty.
 
 API routes create OpenAI/Replicate clients only when a request runs (`lib/ai-clients.ts`), so **`next build` does not require** `OPENAI_API_KEY` or `REPLICATE_API_KEY` in the build environment.
 
@@ -129,6 +156,7 @@ The suite uses [Jest](https://jestjs.io/) via `next/jest`. It covers:
 
 - **`lib/utils.ts`** — `cn()` merging.
 - **`lib/subscription.ts`**, **`lib/api-limit.ts`** — Prisma mocked; Clerk comes from **`test/mocks/clerk-nextjs.ts`** (`jest.config.js` `moduleNameMapper`).
+- **`lib/get-api-error-message.ts`** — Axios/API responses mapped to short toast-safe strings.
 - **API handlers** (`app/api/*/route.test.ts`) — auth and OpenAI/Replicate stubs in **`test/mocks/openai.ts`** and **`test/mocks/replicate.ts`** so nothing calls real APIs during tests.
 
 `lib/subscription.test.ts` and `lib/api-limit.test.ts` load the modules under test with **`require()` after `jest.mock("./prismadb", …)`** so Prisma mocking works reliably with Next’s SWC Jest transformer. Production imports use **`./prismadb`** in those two libs (instead of `@/lib/prismadb`) specifically for stable test doubles.
